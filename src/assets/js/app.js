@@ -19,10 +19,16 @@
 			},
 			initial: function(str) {
 				return str[0];
+			},
+			none: function() {
+				return '';
 			}
 		};
 
 		function fmt(n1, d, n2, domain) {
+			if(n1 === '' || n2 === '') {
+				d = '';
+			}
 			return n1 + d + n2 + '@' + domain;
 		};
 
@@ -31,11 +37,19 @@
 				var first = formatter[spec.firstName](data.first);
 				var second = formatter[spec.lastName](data.last);
 
-				if(spec.reverse) {
+				if(spec.reverse === true) {
 					var tmp = first;
 
 					first = second;
 					second = tmp;
+				}
+
+				if(spec.reverse === 'first') {
+					second = '';
+				}
+				
+				if(spec.reverse === 'last') {
+					first = '';
 				}
 
 				cb(null, fmt(first, spec.delimiter, second, data.domain));
@@ -60,8 +74,17 @@
 
 		permute.fns = function() {
 			var perms = cartesian(opts.firstName, opts.lastName, opts.reverse, opts.delimiter);
+
+			var onlyOpts = {
+				firstName: ['full', 'initial'],
+				lastName: ['full', 'initial'],
+				reverse: ['first', 'last'],
+				delimiter: ['']
+			};
 			
-			return perms.reduce(function(arr, perm) {
+			var onlyPerms = cartesian(onlyOpts.firstName, onlyOpts.lastName, onlyOpts.reverse, onlyOpts.delimiter);
+			
+			var permFns = perms.reduce(function(arr, perm) {
 				var spec = {
 					firstName: perm[0],
 					lastName: perm[1],
@@ -73,6 +96,21 @@
 
 				return arr;
 			},[]);
+			
+			var onlyPermFns = onlyPerms.reduce(function(arr, perm) {
+				var spec = {
+					firstName: perm[0],
+					lastName: perm[1],
+					reverse: perm[2],
+					delimiter: perm[3]
+				};
+
+				arr.push(permutation(spec));
+
+				return arr;
+			},[]);
+
+			return permFns.concat(onlyPermFns);
 		};
 
 		return permute;
@@ -90,7 +128,6 @@
 		var permutations = permuteConstructor(data);
 
 		async.parallel(permutations.fns(), function(err, results) {
-
 			var qs = results.reduce(function(str, email) {
 				return str + '"' + email + '"' + '+OR+';
 			}, '#q=').slice(0, -4);
